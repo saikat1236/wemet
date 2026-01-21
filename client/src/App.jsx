@@ -50,11 +50,20 @@ function App() {
   };
 
   const handleGuestStart = (prefs) => {
+    // Determine the ID to use: existing user ID, generated ID from useEffect, or fallback new ID
+    let currentId = user?.weMetId || localStorage.getItem('wemet_id');
+    if (!currentId) {
+       currentId = 'wm_' + Math.random().toString(36).substr(2, 9);
+       localStorage.setItem('wemet_id', currentId);
+    }
+
     const guestUser = { 
-        username: `Guest_${Math.random().toString(36).substr(2, 6)}`, 
+        ...user,
+        weMetId: currentId,
+        username: user?.username || `Guest_${currentId.substr(3, 4)}`, 
         isGuest: true,
-        avatar: '👋',
-        bio: 'Just visiting!'
+        avatar: user?.avatar || '👋',
+        bio: user?.bio || 'Just visiting!'
     };
     setUser(guestUser);
     setMatchPreferences(prefs);
