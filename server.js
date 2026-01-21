@@ -15,7 +15,6 @@ const io = socketIO(server, {
 
 // Middleware
 app.use(cors());
-app.use(express.static(path.join(__dirname)));
 // Serve static files from React app
 app.use(express.static(path.join(__dirname, 'client/dist')));
 

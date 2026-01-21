@@ -91,33 +91,86 @@ const LandingPage = ({ onStart, onGuestStart }) => {
         </div>
 
         <div className="features-grid">
-          <div className="feature-card stagger-item">
+          <div className="feature-card stagger-item shimmer" style={{ backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.1)' }}>
             <div className="feature-icon">
               <Users size={32} />
             </div>
             <h3>Make New Friends</h3>
             <p>Instantly meet and chat with people from diverse backgrounds.</p>
           </div>
-          <div className="feature-card stagger-item">
+          <div className="feature-card stagger-item shimmer" style={{ backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.1)' }}>
             <div className="feature-icon">
               <Shield size={32} />
             </div>
             <h3>Secured Environment</h3>
             <p>Your privacy is our priority. Advanced encryption for safety.</p>
           </div>
-          <div className="feature-card stagger-item">
+          <div className="feature-card stagger-item shimmer" style={{ backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.1)' }}>
             <div className="feature-icon">
               <Zap size={32} />
             </div>
             <h3>Fast Connections</h3>
             <p>Low-latency video calls powered by our global network.</p>
           </div>
-          <div className="feature-card stagger-item">
+          <div className="feature-card stagger-item shimmer" style={{ backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.1)' }}>
             <div className="feature-icon">
               <Globe size={32} />
             </div>
             <h3>Global Reach</h3>
             <p>Break geographical boundaries. Connect across continents.</p>
+          </div>
+        </div>
+
+        {/* Demo Section */}
+        <div className="demo-section" style={{ marginTop: '5rem' }}>
+          <h2 className="section-title" style={{ textAlign: 'center', marginBottom: '3rem', fontSize: '2.5rem' }}>
+            How <span className="gradient-text">WeMet</span> Works
+          </h2>
+          <div className="demo-grid" style={{ 
+            display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', 
+            gap: '2rem', padding: '0 1rem' 
+          }}>
+            <div className="feature-card stagger-item">
+              <div className="demo-video-container" style={{ 
+                width: '100%', height: '200px', backgroundColor: 'rgba(0,0,0,0.3)', 
+                borderRadius: '12px', marginBottom: '1.5rem', overflow: 'hidden',
+                border: '1px solid rgba(255,255,255,0.1)'
+               }}>
+                <video autoPlay muted loop playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }}>
+                  <source src="https://static.videezy.com/system/resources/previews/000/019/331/original/laptop_work.mp4" type="video/mp4" />
+                </video>
+              </div>
+              <h3>1. Start Chatting</h3>
+              <p>Just click "Start as Guest" to begin your journey instantly.</p>
+            </div>
+            
+            <div className="feature-card stagger-item">
+              <div className="demo-video-container" style={{ 
+                width: '100%', height: '200px', backgroundColor: 'rgba(0,0,0,0.3)', 
+                borderRadius: '12px', marginBottom: '1.5rem', overflow: 'hidden',
+                border: '1px solid rgba(255,255,255,0.1)'
+               }}>
+                <video autoPlay muted loop playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }}>
+                  <source src="https://static.videezy.com/system/resources/previews/000/041/476/original/Friends-on-video-call-laptop.mp4" type="video/mp4" />
+                </video>
+              </div>
+              <h3>2. Get Matched</h3>
+              <p>Our intelligent system pairs you with someone globally in seconds.</p>
+            </div>
+            
+            <div className="feature-card stagger-item">
+              <div className="demo-video-container" style={{ 
+                width: '100%', height: '200px', backgroundColor: 'rgba(0,0,0,0.3)', 
+                borderRadius: '12px', marginBottom: '1.5rem', overflow: 'hidden',
+                border: '1px solid rgba(255,255,255,0.1)'
+               }}>
+                <video autoPlay muted loop playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }}>
+                  <source src="https://static.videezy.com/system/resources/previews/000/019/335/original/active_conversation.mp4" type="video/mp4" />
+                </video>
+              </div>
+              <h3>3. Connect & Enjoy</h3>
+              <p>Engage in real-time video and text chat with premium features.</p>
+            </div>
           </div>
         </div>
       </main>
