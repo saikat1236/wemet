@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import LandingPage from './components/LandingPage';
 import ChatRoom from './components/ChatRoom';
 import WalletModal from './components/WalletModal';
+import ProfileModal from './components/ProfileModal';
 import { Coins } from 'lucide-react';
 
 function App() {
@@ -9,23 +10,45 @@ function App() {
   const [user, setUser] = useState(null);
   const [coins, setCoins] = useState(100);
   const [isWalletOpen, setIsWalletOpen] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [matchPreferences, setMatchPreferences] = useState({ myGender: 'Any', lookingFor: 'Any' });
 
+  // Load profile from local storage
+  useEffect(() => {
+    const savedProfile = localStorage.getItem('wemet_profile');
+    if (savedProfile) {
+      setUser({ ...JSON.parse(savedProfile), isGuest: false });
+    }
+  }, []);
+
   const handleStart = (prefs) => {
-    // In a real app, handle login here
-    setUser({ username: 'User', isGuest: false });
     setMatchPreferences(prefs);
+    if (!user) {
+        setUser({ username: 'User', isGuest: false, avatar: '😊', bio: 'Ready to chat!' });
+    }
     setCurrentPage('chat');
   };
 
   const handleGuestStart = (prefs) => {
-    setUser({ username: `Guest_${Math.random().toString(36).substr(2, 6)}`, isGuest: true });
+    const guestUser = { 
+        username: `Guest_${Math.random().toString(36).substr(2, 6)}`, 
+        isGuest: true,
+        avatar: '👋',
+        bio: 'Just visiting!'
+    };
+    setUser(guestUser);
     setMatchPreferences(prefs);
     setCurrentPage('chat');
   };
 
+  const handleUpdateProfile = (updatedProfile) => {
+    const newUser = { ...user, ...updatedProfile };
+    setUser(newUser);
+    localStorage.setItem('wemet_profile', JSON.stringify(newUser));
+  };
+
   const handleLogout = () => {
-    setUser(null);
+    // setUser(null); // Keep profile for next time
     setCurrentPage('landing');
   };
 
@@ -43,6 +66,7 @@ function App() {
           coins={coins}
           setCoins={setCoins}
           onOpenWallet={() => setIsWalletOpen(true)}
+          onOpenProfile={() => setIsProfileOpen(true)}
         />
       )}
 
@@ -52,6 +76,15 @@ function App() {
           onClose={() => setIsWalletOpen(false)} 
           coins={coins}
           setCoins={setCoins}
+        />
+      )}
+
+      {isProfileOpen && (
+        <ProfileModal
+            isOpen={isProfileOpen}
+            onClose={() => setIsProfileOpen(false)}
+            user={user}
+            onUpdateProfile={handleUpdateProfile}
         />
       )}
     </div>

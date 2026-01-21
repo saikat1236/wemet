@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import io from 'socket.io-client';
-import { Mic, MicOff, Video, VideoOff, Send, X, LogOut, SkipForward, PlaySquare, StopCircle, MessageSquare } from 'lucide-react';
+import { Mic, MicOff, Video, VideoOff, Send, X, LogOut, SkipForward, PlaySquare, StopCircle, MessageSquare, Monitor, Circle } from 'lucide-react';
 
-const ChatRoom = ({ user, matchPreferences, onLogout, coins, setCoins, onOpenWallet }) => {
+const ChatRoom = ({ user, matchPreferences, onLogout, coins, setCoins, onOpenWallet, onOpenProfile }) => {
   const [socket, setSocket] = useState(null);
   const [localStream, setLocalStream] = useState(null);
   const [remoteStream, setRemoteStream] = useState(null);
@@ -54,6 +54,18 @@ const ChatRoom = ({ user, matchPreferences, onLogout, coins, setCoins, onOpenWal
       setIsInChat(true);
       setPartnerName(data.partnerName || 'Stranger');
       setStatus('Connected!');
+
+      // Save to history
+      const newMatch = {
+        name: data.partnerName || 'Stranger',
+        timestamp: new Date().toISOString(),
+        id: data.partnerId
+      };
+      
+      const history = JSON.parse(localStorage.getItem('wemet_history') || '[]');
+      // Keep last 10 matches
+      const updatedHistory = [newMatch, ...history].slice(0, 10);
+      localStorage.setItem('wemet_history', JSON.stringify(updatedHistory));
       
       if (data.initiator) {
         createOffer(data.partnerId);
@@ -194,6 +206,87 @@ const ChatRoom = ({ user, matchPreferences, onLogout, coins, setCoins, onOpenWal
     setMessages(prev => [...prev, { sender: 'System', text: 'Partner has disconnected', isSystem: true }]);
   };
 
+  const [isScreenSharing, setIsScreenSharing] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const mediaRecorderRef = useRef(null);
+  const chunksRef = useRef([]);
+
+  // Screen Sharing Logic
+  const startScreenShare = async () => {
+    try {
+      const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+      const screenTrack = screenStream.getVideoTracks()[0];
+
+      if (peerConnection) {
+        const sender = peerConnection.getSenders().find(s => s.track.kind === 'video');
+        if (sender) {
+          sender.replaceTrack(screenTrack);
+        }
+      }
+
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = screenStream;
+      }
+
+      screenTrack.onended = () => {
+        stopScreenShare();
+      };
+
+      setIsScreenSharing(true);
+    } catch (err) {
+      console.error('Error sharing screen:', err);
+    }
+  };
+
+  const stopScreenShare = async () => {
+    if (localStream && peerConnection) {
+      const videoTrack = localStream.getVideoTracks()[0];
+      const sender = peerConnection.getSenders().find(s => s.track.kind === 'video');
+      if (sender) {
+        sender.replaceTrack(videoTrack);
+      }
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = localStream;
+      }
+    }
+    setIsScreenSharing(false);
+  };
+
+  // Recording Logic
+  const startRecording = () => {
+    if (!remoteStream) return;
+    
+    const mediaRecorder = new MediaRecorder(remoteStream);
+    mediaRecorderRef.current = mediaRecorder;
+    chunksRef.current = [];
+
+    mediaRecorder.ondataavailable = (e) => {
+      if (e.data.size > 0) {
+        chunksRef.current.push(e.data);
+      }
+    };
+
+    mediaRecorder.onstop = () => {
+      const blob = new Blob(chunksRef.current, { type: 'video/webm' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `wemet-recording-${Date.now()}.webm`;
+      a.click();
+      URL.revokeObjectURL(url);
+    };
+
+    mediaRecorder.start();
+    setIsRecording(true);
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+    }
+  };
+
   // Actions
   const startMatching = () => {
     if (isMatching || isInChat) return;
@@ -269,7 +362,12 @@ const ChatRoom = ({ user, matchPreferences, onLogout, coins, setCoins, onOpenWal
             <span id="coin-count">{coins}</span>
             <button className="add-coins-btn">+</button>
           </div>
-          <span className="username">{user?.username}</span>
+          
+          <div className="user-profile-trigger" onClick={onOpenProfile} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', padding: '4px 8px', borderRadius: '8px', transition: 'background 0.2s' }}>
+            <span style={{ fontSize: '1.2rem' }}>{user?.avatar || '😊'}</span>
+            <span className="username">{user?.username}</span>
+          </div>
+
           <button className="icon-btn" onClick={onLogout} title="Logout">
             <LogOut size={20} />
           </button>
@@ -305,6 +403,25 @@ const ChatRoom = ({ user, matchPreferences, onLogout, coins, setCoins, onOpenWal
             <button className="control-btn" onClick={toggleAudio}>
               {isAudioEnabled ? <Mic size={20} /> : <MicOff size={20} />}
             </button>
+
+            {isInChat && (
+              <>
+                <button 
+                  className={`control-btn ${isScreenSharing ? 'active' : ''}`} 
+                  onClick={isScreenSharing ? stopScreenShare : startScreenShare}
+                  title="Share Screen"
+                >
+                  <Monitor size={20} color={isScreenSharing ? '#667eea' : 'currentColor'} />
+                </button>
+                <button 
+                  className={`control-btn ${isRecording ? 'danger' : ''}`} 
+                  onClick={isRecording ? stopRecording : startRecording}
+                  title="Record Chat"
+                >
+                  <Circle size={20} fill={isRecording ? 'currentColor' : 'none'} />
+                </button>
+              </>
+            )}
             
             {!isInChat && !isMatching && (
               <button className="control-btn primary" onClick={startMatching}>
