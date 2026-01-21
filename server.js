@@ -16,15 +16,17 @@ const io = socketIO(server, {
 // Middleware
 app.use(cors());
 app.use(express.static(path.join(__dirname)));
+// Serve static files from React app
+app.use(express.static(path.join(__dirname, 'client/dist')));
 
-// Serve index.html for root route
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
+// Health check
+app.get('/health', (req, res) => {
+    res.status(200).send('OK');
 });
 
-// Health check endpoint for deployment platforms
-app.get('/health', (req, res) => {
-    res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+// Handle React routing, return all requests to React app
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'client/dist', 'index.html'));
 });
 
 // User management
@@ -43,51 +45,71 @@ io.on('connection', (socket) => {
             username: userData.username || 'Anonymous',
             isGuest: userData.isGuest || false,
             partnerId: null,
-            coins: 100 // Initial free credits
+            coins: 100, // Initial free credits
+            myGender: userData.myGender || 'Any',
+            lookingFor: userData.lookingFor || 'Any'
         });
 
         // Send initial balance
         socket.emit('balance-updated', { balance: 100 });
 
         // Try to match with waiting user
-        if (waitingUsers.length > 0) {
-            const partner = waitingUsers.shift();
+        let matchFound = false;
+        
+        // Filter waiting users based on preferences
+        const potentialMatches = waitingUsers.filter(user => {
+            // Check if I match their preference
+            const theyWantMe = user.lookingFor === 'Any' || user.lookingFor === userData.myGender;
+            // Check if they match my preference
+            const iWantThem = userData.lookingFor === 'Any' || userData.lookingFor === user.myGender;
             
-            // Check if partner is still connected
+            return theyWantMe && iWantThem;
+        });
+
+        if (potentialMatches.length > 0) {
+            // Pick random match from filtered list
+            const partner = potentialMatches[Math.floor(Math.random() * potentialMatches.length)];
             const partnerSocket = io.sockets.sockets.get(partner.socketId);
-            if (!partnerSocket) {
-                // Partner disconnected, try next
-                socket.emit('find-match', userData);
-                return;
+
+            if (partnerSocket) {
+                matchFound = true;
+                
+                // Remove partner from waiting list
+                const partnerIndex = waitingUsers.findIndex(u => u.socketId === partner.socketId);
+                if (partnerIndex !== -1) {
+                    waitingUsers.splice(partnerIndex, 1);
+                }
+
+                // Update connection status
+                const myData = activeConnections.get(socket.id);
+                const partnerData = activeConnections.get(partner.socketId);
+
+                myData.partnerId = partner.socketId;
+                partnerData.partnerId = socket.id;
+
+                // Notify both users
+                socket.emit('matched', { 
+                    partnerId: partner.socketId, 
+                    initiator: true,
+                    partnerName: partnerData.username 
+                });
+                partnerSocket.emit('matched', { 
+                    partnerId: socket.id, 
+                    initiator: false,
+                    partnerName: myData.username 
+                });
+                console.log('Matched:', socket.id, 'with', partner.socketId);
             }
+        }
 
-            // Create match
-            const user1 = activeConnections.get(socket.id);
-            const user2 = activeConnections.get(partner.socketId);
-
-            user1.partnerId = partner.socketId;
-            user2.partnerId = socket.id;
-
-            // Notify both users
-            socket.emit('matched', {
-                partnerId: partner.socketId,
-                partnerName: user2.username,
-                initiator: true
-            });
-
-            partnerSocket.emit('matched', {
-                partnerId: socket.id,
-                partnerName: user1.username,
-                initiator: false
-            });
-
-            console.log('Matched:', socket.id, 'with', partner.socketId);
-        } else {
+        if (!matchFound) {
             // Add to waiting queue
             waitingUsers.push({
                 socketId: socket.id,
-                username: userData.username,
-                timestamp: Date.now()
+                username: userData.username || 'Anonymous', // Ensure username is stored
+                timestamp: Date.now(),
+                myGender: userData.myGender || 'Any',
+                lookingFor: userData.lookingFor || 'Any'
             });
             socket.emit('waiting');
             console.log('User waiting:', socket.id);
