@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: video-chat-app
+    name: wemet
     env: node
     plan: free
     buildCommand: npm install && npm run build
