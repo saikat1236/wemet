@@ -18,6 +18,7 @@ const ChatRoom = ({ user, matchPreferences, onLogout, coins, setCoins, onOpenWal
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [sidebarTab, setSidebarTab] = useState('chat'); // 'chat' or 'history'
 
+  const [messages, setMessages] = useState([]);
   const [isFavorite, setIsFavorite] = useState(false);
   const [inputText, setInputText] = useState('');
 
@@ -224,7 +225,7 @@ const ChatRoom = ({ user, matchPreferences, onLogout, coins, setCoins, onOpenWal
 
   const handlePartnerDisconnect = () => {
     setIsInChat(false);
-    setPartnerName(null);
+    setPartner(null);
     setRemoteStream(null);
     if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
     if (peerConnection) {
@@ -320,7 +321,7 @@ const ChatRoom = ({ user, matchPreferences, onLogout, coins, setCoins, onOpenWal
     if (!partner) return;
     socket.emit('report-user', { targetId: partner.weMetId, reason: 'unspecified' });
     alert('User reported. Our moderation team will review the session.');
-    skipMatch();
+    findNext();
   };
 
   // Actions
@@ -338,7 +339,7 @@ const ChatRoom = ({ user, matchPreferences, onLogout, coins, setCoins, onOpenWal
   const stopChat = () => {
     setIsMatching(false);
     setIsInChat(false);
-    setPartnerName(null);
+    setPartner(null);
     setRemoteStream(null);
     if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
     if (peerConnection) {
