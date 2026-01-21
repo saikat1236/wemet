@@ -3,6 +3,7 @@ import LandingPage from './components/LandingPage';
 import ChatRoom from './components/ChatRoom';
 import WalletModal from './components/WalletModal';
 import ProfileModal from './components/ProfileModal';
+import ErrorBoundary from './components/ErrorBoundary';
 import { Coins } from 'lucide-react';
 
 function App() {
@@ -82,41 +83,43 @@ function App() {
   };
 
   return (
-    <div className="app-container">
-      {currentPage === 'landing' && (
-        <LandingPage onStart={handleStart} onGuestStart={handleGuestStart} />
-      )}
+    <ErrorBoundary>
+      <div className="app-container">
+        {currentPage === 'landing' && (
+          <LandingPage onStart={handleStart} onGuestStart={handleGuestStart} />
+        )}
 
-      {currentPage === 'chat' && (
-        <ChatRoom 
-          user={user} 
-          matchPreferences={matchPreferences}
-          onLogout={handleLogout}
-          coins={coins}
-          setCoins={setCoins}
-          onOpenWallet={() => setIsWalletOpen(true)}
-          onOpenProfile={() => setIsProfileOpen(true)}
-        />
-      )}
+        {currentPage === 'chat' && (
+          <ChatRoom 
+            user={user} 
+            matchPreferences={matchPreferences}
+            onLogout={handleLogout}
+            coins={coins}
+            setCoins={setCoins}
+            onOpenWallet={() => setIsWalletOpen(true)}
+            onOpenProfile={() => setIsProfileOpen(true)}
+          />
+        )}
 
-      {isWalletOpen && (
-        <WalletModal 
-          isOpen={isWalletOpen} 
-          onClose={() => setIsWalletOpen(false)} 
-          coins={coins}
-          setCoins={setCoins}
-        />
-      )}
+        {isWalletOpen && (
+          <WalletModal 
+            isOpen={isWalletOpen} 
+            onClose={() => setIsWalletOpen(false)} 
+            coins={coins}
+            setCoins={setCoins}
+          />
+        )}
 
-      {isProfileOpen && (
-        <ProfileModal
-            isOpen={isProfileOpen}
-            onClose={() => setIsProfileOpen(false)}
-            user={user}
-            onUpdateProfile={handleUpdateProfile}
-        />
-      )}
-    </div>
+        {isProfileOpen && (
+          <ProfileModal
+              isOpen={isProfileOpen}
+              onClose={() => setIsProfileOpen(false)}
+              user={user}
+              onUpdateProfile={handleUpdateProfile}
+          />
+        )}
+      </div>
+    </ErrorBoundary>
   );
 }
 
