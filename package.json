@@ -1,5 +1,5 @@
 {
-    "name": "video-chat-app",
+    "name": "wemet",
     "version": "1.0.0",
     "description": "Worldwide video chat application with WebRTC",
     "main": "server.js",

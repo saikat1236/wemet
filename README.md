@@ -1,4 +1,4 @@
-# VideoChat - Random Video Chat Application
+# WeMet - Connect with Strangers using Video Chat
 
 A modern, feature-rich video chat application that connects strangers worldwide through WebRTC technology.
 
@@ -24,7 +24,7 @@ A modern, feature-rich video chat application that connects strangers worldwide 
 1. Clone the repository:
 ```bash
 git clone <your-repo-url>
-cd video-chat-app
+cd wemet
 ```
 
 2. Install dependencies:
@@ -104,24 +104,25 @@ vercel
 
 ## 🛠️ Technology Stack
 
-- **Frontend**: HTML5, CSS3, Vanilla JavaScript
+- **Frontend**: React 18, Vite, Lucide React
 - **Backend**: Node.js, Express
 - **Real-time Communication**: Socket.IO
 - **Video/Audio**: WebRTC
-- **Styling**: Custom CSS with animations
+- **Styling**: Custom CSS with Glassmorphism
 
 ## 📁 Project Structure
 
 ```
-video-chat-app/
-├── index.html          # Main HTML file
-├── styles.css          # Styles and animations
-├── app.js             # Main application logic
-├── webrtc.js          # WebRTC connection handling
-├── signaling.js       # Socket.IO signaling client
-├── server.js          # Express + Socket.IO server
-├── package.json       # Dependencies
-└── render.yaml        # Render deployment config
+wemet/
+├── client/                 # React Frontend
+│   ├── src/
+│   │   ├── components/     # React Components
+│   │   ├── App.jsx         # Main App Component
+│   │   └── main.jsx        # Entry Point
+│   └── index.html          # HTML Template
+├── server.js              # Express + Socket.IO server
+├── package.json           # Root Dependencies
+└── render.yaml            # Render deployment config
 ```
 
 ## 🎯 How It Works

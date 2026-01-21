@@ -11,7 +11,7 @@ Render is perfect for this application as it supports Node.js, WebSockets, and h
 1. **Create a GitHub Repository**
    ```bash
    # Create a new repository on GitHub, then:
-   git remote add origin https://github.com/YOUR_USERNAME/video-chat-app.git
+   git remote add origin https://github.com/YOUR_USERNAME/wemet.git
    git branch -M main
    git push -u origin main
    ```
@@ -20,7 +20,7 @@ Render is perfect for this application as it supports Node.js, WebSockets, and h
    - Go to [render.com](https://render.com) and sign up/login
    - Click "New +" → "Web Service"
    - Connect your GitHub account
-   - Select your `video-chat-app` repository
+   - Select your `wemet` repository
    - Render will auto-detect the `render.yaml` configuration
    - Click "Create Web Service"
    - Wait 3-5 minutes for deployment
