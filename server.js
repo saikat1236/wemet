@@ -45,9 +45,12 @@ io.on('connection', (socket) => {
             username: userData.username || 'Anonymous',
             isGuest: userData.isGuest || false,
             partnerId: null,
-            coins: 100, // Initial free credits
+            coins: 100,
             myGender: userData.myGender || 'Any',
-            lookingFor: userData.lookingFor || 'Any'
+            lookingFor: userData.lookingFor || 'Any',
+            avatar: userData.avatar || '😊',
+            bio: userData.bio || '',
+            weMetId: userData.weMetId || null
         });
 
         // Send initial balance
@@ -91,12 +94,18 @@ io.on('connection', (socket) => {
                 socket.emit('matched', { 
                     partnerId: partner.socketId, 
                     initiator: true,
-                    partnerName: partnerData.username 
+                    partnerName: partnerData.username,
+                    partnerAvatar: partnerData.avatar,
+                    partnerBio: partnerData.bio,
+                    partnerWeMetId: partnerData.weMetId
                 });
                 partnerSocket.emit('matched', { 
                     partnerId: socket.id, 
                     initiator: false,
-                    partnerName: myData.username 
+                    partnerName: myData.username,
+                    partnerAvatar: myData.avatar,
+                    partnerBio: myData.bio,
+                    partnerWeMetId: myData.weMetId
                 });
                 console.log('Matched:', socket.id, 'with', partner.socketId);
             }
@@ -106,10 +115,13 @@ io.on('connection', (socket) => {
             // Add to waiting queue
             waitingUsers.push({
                 socketId: socket.id,
-                username: userData.username || 'Anonymous', // Ensure username is stored
+                username: userData.username || 'Anonymous',
                 timestamp: Date.now(),
                 myGender: userData.myGender || 'Any',
-                lookingFor: userData.lookingFor || 'Any'
+                lookingFor: userData.lookingFor || 'Any',
+                avatar: userData.avatar || '😊',
+                bio: userData.bio || '',
+                weMetId: userData.weMetId || null
             });
             socket.emit('waiting');
             console.log('User waiting:', socket.id);

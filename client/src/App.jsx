@@ -13,11 +13,31 @@ function App() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [matchPreferences, setMatchPreferences] = useState({ myGender: 'Any', lookingFor: 'Any' });
 
-  // Load profile from local storage
+  // Load profile and ID from local storage
   useEffect(() => {
+    let weMetId = localStorage.getItem('wemet_id');
+    if (!weMetId) {
+      weMetId = 'wm_' + Math.random().toString(36).substr(2, 9);
+      localStorage.setItem('wemet_id', weMetId);
+    }
+
     const savedProfile = localStorage.getItem('wemet_profile');
     if (savedProfile) {
-      setUser({ ...JSON.parse(savedProfile), isGuest: false });
+      setUser({ ...JSON.parse(savedProfile), weMetId, isGuest: false });
+    } else {
+      // Initialize a default guest identity
+      setUser({ 
+        weMetId,
+        username: `Guest_${weMetId.substr(3, 4)}`, 
+        isGuest: true,
+        avatar: '👋',
+        bio: 'Just visiting WeMet!'
+      });
+    }
+
+    // Initialize favorites if not exists
+    if (!localStorage.getItem('wemet_favorites')) {
+      localStorage.setItem('wemet_favorites', JSON.stringify([]));
     }
   }, []);
 

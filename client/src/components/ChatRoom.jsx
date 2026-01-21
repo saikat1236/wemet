@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import io from 'socket.io-client';
-import { Mic, MicOff, Video, VideoOff, Send, X, LogOut, SkipForward, PlaySquare, StopCircle, MessageSquare, Monitor, Circle } from 'lucide-react';
+import { Mic, MicOff, Video, VideoOff, Send, X, LogOut, SkipForward, PlaySquare, StopCircle, MessageSquare, Monitor, Circle, Heart, Clock, Shield } from 'lucide-react';
 
 const ChatRoom = ({ user, matchPreferences, onLogout, coins, setCoins, onOpenWallet, onOpenProfile }) => {
   const [socket, setSocket] = useState(null);
@@ -11,13 +11,14 @@ const ChatRoom = ({ user, matchPreferences, onLogout, coins, setCoins, onOpenWal
   const [isMatching, setIsMatching] = useState(false);
   const [isInChat, setIsInChat] = useState(false);
   const [status, setStatus] = useState('Click "Start" to begin');
-  const [partnerName, setPartnerName] = useState(null);
+  const [partner, setPartner] = useState(null); // { name, avatar, bio, weMetId }
   
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
   const [isChatOpen, setIsChatOpen] = useState(false);
-  
-  const [messages, setMessages] = useState([]);
+  const [sidebarTab, setSidebarTab] = useState('chat'); // 'chat' or 'history'
+
+  const [isFavorite, setIsFavorite] = useState(false);
   const [inputText, setInputText] = useState('');
 
   const localVideoRef = useRef(null);
@@ -52,25 +53,53 @@ const ChatRoom = ({ user, matchPreferences, onLogout, coins, setCoins, onOpenWal
       console.log('Matched:', data);
       setIsMatching(false);
       setIsInChat(true);
-      setPartnerName(data.partnerName || 'Stranger');
+      
+      const partnerProfile = {
+        name: data.partnerName || 'Stranger',
+        avatar: data.partnerAvatar || '😊',
+        bio: data.partnerBio || '',
+        weMetId: data.partnerWeMetId
+      };
+      setPartner(partnerProfile);
       setStatus('Connected!');
+
+      // Check if already in favorites
+      const favorites = JSON.parse(localStorage.getItem('wemet_favorites') || '[]');
+      const isFav = favorites.some(f => f.weMetId === data.partnerWeMetId);
+      setIsFavorite(isFav);
 
       // Save to history
       const newMatch = {
-        name: data.partnerName || 'Stranger',
-        timestamp: new Date().toISOString(),
-        id: data.partnerId
+        ...partnerProfile,
+        timestamp: new Date().toISOString()
       };
       
       const history = JSON.parse(localStorage.getItem('wemet_history') || '[]');
-      // Keep last 10 matches
-      const updatedHistory = [newMatch, ...history].slice(0, 10);
+      // Keep last 10 unique recent matches
+      const filteredHistory = history.filter(h => h.weMetId !== data.partnerWeMetId);
+      const updatedHistory = [newMatch, ...filteredHistory].slice(0, 10);
       localStorage.setItem('wemet_history', JSON.stringify(updatedHistory));
       
       if (data.initiator) {
         createOffer(data.partnerId);
       }
     });
+
+  const toggleFavorite = () => {
+    if (!partner || !partner.weMetId) return;
+    
+    const favorites = JSON.parse(localStorage.getItem('wemet_favorites') || '[]');
+    let updatedFavorites;
+    
+    if (isFavorite) {
+      updatedFavorites = favorites.filter(f => f.weMetId !== partner.weMetId);
+    } else {
+      updatedFavorites = [partner, ...favorites];
+    }
+    
+    localStorage.setItem('wemet_favorites', JSON.stringify(updatedFavorites));
+    setIsFavorite(!isFavorite);
+  };
 
     socket.on('offer', async (data) => {
       handleOffer(data.offer, data.from);
@@ -287,6 +316,13 @@ const ChatRoom = ({ user, matchPreferences, onLogout, coins, setCoins, onOpenWal
     }
   };
 
+  const handleReport = () => {
+    if (!partner) return;
+    socket.emit('report-user', { targetId: partner.weMetId, reason: 'unspecified' });
+    alert('User reported. Our moderation team will review the session.');
+    skipMatch();
+  };
+
   // Actions
   const startMatching = () => {
     if (isMatching || isInChat) return;
@@ -387,7 +423,24 @@ const ChatRoom = ({ user, matchPreferences, onLogout, coins, setCoins, onOpenWal
                   </div>
                 </div>
               )}
-              {partnerName && <div className="partner-info">{partnerName}</div>}
+              {partner && (
+                <div className="partner-info" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{ fontSize: '1.5rem' }}>{partner.avatar}</span>
+                  <div>
+                    <div style={{ fontWeight: '700' }}>{partner.name}</div>
+                    {partner.bio && <div style={{ fontSize: '0.8rem', opacity: 0.8 }}>{partner.bio}</div>}
+                  </div>
+                  <button 
+                    onClick={toggleFavorite} 
+                    style={{ 
+                      background: 'transparent', border: 'none', cursor: 'pointer', 
+                      marginLeft: 'auto', display: 'flex', alignItems: 'center' 
+                    }}
+                  >
+                    <Heart size={20} fill={isFavorite ? '#ff4b2b' : 'none'} color={isFavorite ? '#ff4b2b' : 'white'} />
+                  </button>
+                </div>
+              )}
             </div>
             
             <div className="video-container local-video-container">
@@ -420,6 +473,9 @@ const ChatRoom = ({ user, matchPreferences, onLogout, coins, setCoins, onOpenWal
                 >
                   <Circle size={20} fill={isRecording ? 'currentColor' : 'none'} />
                 </button>
+                <button className="control-btn" onClick={handleReport} title="Report User">
+                  <Shield size={20} />
+                </button>
               </>
             )}
             
@@ -448,35 +504,86 @@ const ChatRoom = ({ user, matchPreferences, onLogout, coins, setCoins, onOpenWal
 
         <div className={`chat-sidebar ${isChatOpen ? 'active' : ''}`}>
           <div className="chat-header-bar">
-            <h3>Chat</h3>
+            <div style={{ display: 'flex', gap: '15px' }}>
+              <h3 
+                onClick={() => setSidebarTab('chat')} 
+                style={{ cursor: 'pointer', opacity: sidebarTab === 'chat' ? 1 : 0.5, borderBottom: sidebarTab === 'chat' ? '2px solid #667eea' : 'none', paddingBottom: '4px' }}
+              >
+                Chat
+              </h3>
+              <h3 
+                onClick={() => setSidebarTab('history')} 
+                style={{ cursor: 'pointer', opacity: sidebarTab === 'history' ? 1 : 0.5, borderBottom: sidebarTab === 'history' ? '2px solid #667eea' : 'none', paddingBottom: '4px' }}
+              >
+                History
+              </h3>
+            </div>
             <button className="icon-btn" onClick={() => setIsChatOpen(false)}>
               <X size={20} />
             </button>
           </div>
           
-          <div className="chat-messages">
-            {messages.map((msg, idx) => (
-              <div key={idx} className={`message ${msg.isSent ? 'sent' : 'received'} ${msg.isSystem ? 'system' : ''}`}>
-                {!msg.isSystem && <div className="message-sender">{msg.sender}</div>}
-                <div className="message-text">{msg.text}</div>
+          {sidebarTab === 'chat' ? (
+            <>
+              <div className="chat-messages">
+                {messages.length === 0 && (
+                  <div className="chat-info">Stranger is waiting for a message...</div>
+                )}
+                {messages.map((msg, idx) => (
+                  <div key={idx} className={`message ${msg.isSent ? 'sent' : 'received'} ${msg.isSystem ? 'system' : ''}`}>
+                    {!msg.isSystem && <div className="message-sender">{msg.sender}</div>}
+                    <div className="message-text">{msg.text}</div>
+                  </div>
+                ))}
+                <div ref={messagesEndRef} />
               </div>
-            ))}
-            <div ref={messagesEndRef} />
-          </div>
-          
-          <div className="chat-input-container">
-            <input 
-              type="text" 
-              placeholder="Type a message..." 
-              value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
-              disabled={!isInChat}
-            />
-            <button className="send-btn" onClick={sendMessage} disabled={!isInChat}>
-              <Send size={20} />
-            </button>
-          </div>
+              
+              <div className="chat-input-container">
+                <input 
+                  type="text" 
+                  placeholder="Type a message..." 
+                  value={inputText}
+                  onChange={(e) => setInputText(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+                  disabled={!isInChat}
+                />
+                <button className="send-btn" onClick={sendMessage} disabled={!isInChat}>
+                  <Send size={20} />
+                </button>
+              </div>
+            </>
+          ) : (
+            <div className="chat-messages" style={{ gap: '15px' }}>
+              <div style={{ fontWeight: '600', fontSize: '0.9rem', color: '#ff4b2b', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <Heart size={14} fill="#ff4b2b" /> Favorites
+              </div>
+              {JSON.parse(localStorage.getItem('wemet_favorites') || '[]').map((fav, i) => (
+                <div key={i} className="message received" style={{ maxWidth: '100%', display: 'flex', gap: '10px', alignItems: 'center' }}>
+                  <span style={{ fontSize: '1.2rem' }}>{fav.avatar}</span>
+                  <div>
+                    <div style={{ fontWeight: '600', fontSize: '0.9rem' }}>{fav.name}</div>
+                    <div style={{ fontSize: '0.7rem', opacity: 0.7 }}>{fav.bio}</div>
+                  </div>
+                </div>
+              ))}
+              
+              <div style={{ fontWeight: '600', fontSize: '0.9rem', color: '#667eea', display: 'flex', alignItems: 'center', gap: '5px', marginTop: '10px' }}>
+                <Clock size={14} /> Recent Matches
+              </div>
+              {JSON.parse(localStorage.getItem('wemet_history') || '[]').map((match, i) => (
+                <div key={i} className="message received" style={{ maxWidth: '100%', display: 'flex', gap: '10px', alignItems: 'center', background: 'rgba(255,255,255,0.05)' }}>
+                  <span style={{ fontSize: '1.2rem' }}>{match.avatar}</span>
+                  <div>
+                    <div style={{ fontWeight: '600', fontSize: '0.9rem' }}>{match.name}</div>
+                    <div style={{ fontSize: '0.7rem', opacity: 0.6 }}>{new Date(match.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                  </div>
+                </div>
+              ))}
+              {JSON.parse(localStorage.getItem('wemet_history') || '[]').length === 0 && (
+                <div className="chat-info">No recent matches yet</div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>
