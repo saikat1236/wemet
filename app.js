@@ -76,6 +76,18 @@ class VideoChat {
         
         // Add ripple effects to all buttons
         this.addRippleEffects();
+
+        // Coin System Listeners
+        document.getElementById('open-wallet-btn')?.addEventListener('click', () => {
+            document.getElementById('wallet-modal').classList.add('active');
+        });
+
+        document.querySelectorAll('.buy-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const amount = parseInt(e.target.dataset.amount);
+                this.handleBuyCoins(amount);
+            });
+        });
     }
     
     addRippleEffects() {
@@ -187,6 +199,11 @@ class VideoChat {
         signalingClient.on('disconnected', () => {
             this.updateStatus('Disconnected from server');
         });
+
+        // Coin System
+        signalingClient.on('balance-updated', (data) => {
+            this.updateBalanceDisplay(data.balance);
+        });
     }
 
     // Authentication methods
@@ -281,6 +298,10 @@ class VideoChat {
         try {
             await webrtcManager.initializeLocalStream();
             await signalingClient.connect();
+            
+            // Request initial balance
+            signalingClient.socket.emit('get-balance');
+            
             this.updateStatus('Click "Start" to begin');
         } catch (error) {
             console.error('Error initializing:', error);
@@ -503,6 +524,41 @@ class VideoChat {
             filtered = filtered.replace(regex, '*'.repeat(word.length));
         });
         return filtered;
+    }
+
+    // Coin System Methods
+    updateBalanceDisplay(balance) {
+        const balanceEl = document.getElementById('coin-count');
+        if (balanceEl) {
+            // Animate update
+            balanceEl.classList.add('coin-update');
+            balanceEl.textContent = balance;
+            setTimeout(() => balanceEl.classList.remove('coin-update'), 300);
+        }
+    }
+
+    handleBuyCoins(amount) {
+        // In a real app, this would integrate with a payment gateway
+        // For demo, we just simulate a successful purchase
+        
+        // Show loading state
+        const btn = document.querySelector(`.buy-btn[data-amount="${amount}"]`);
+        const originalText = btn.textContent;
+        btn.textContent = 'Processing...';
+        btn.disabled = true;
+
+        setTimeout(() => {
+            // Simulate server request
+            signalingClient.socket.emit('update-balance', { amount: amount });
+            
+            btn.textContent = 'Success!';
+            setTimeout(() => {
+                btn.textContent = originalText;
+                btn.disabled = false;
+                this.hideModal('wallet-modal');
+                alert(`Successfully added ${amount} coins to your wallet!`);
+            }, 1000);
+        }, 1500);
     }
 }
 

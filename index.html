@@ -168,6 +168,14 @@
                     <span>VideoChat</span>
                 </div>
                 <div class="user-info">
+                    <div class="coin-balance" id="coin-balance-display" title="Your Coins">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                            <circle cx="12" cy="12" r="10" fill="#FFD700" stroke="#B8860B" stroke-width="2"/>
+                            <path d="M12 6V18M8 12H16" stroke="#B8860B" stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                        <span id="coin-count">0</span>
+                        <button class="add-coins-btn" id="open-wallet-btn">+</button>
+                    </div>
                     <span class="username" id="current-username">Guest</span>
                     <button class="icon-btn" id="logout-btn" title="Logout">
                         <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -281,6 +289,39 @@
                     </div>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Wallet Modal -->
+    <div id="wallet-modal" class="modal">
+        <div class="modal-content wallet-content">
+            <div class="modal-header">
+                <h2>Get Coins</h2>
+                <button class="close-modal" data-modal="wallet-modal">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                        <path d="M6 6 L18 18 M18 6 L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="wallet-grid">
+                <div class="coin-package">
+                    <div class="coin-amount">100 Coins</div>
+                    <div class="coin-price">Free</div>
+                    <button class="buy-btn" data-amount="100">Claim Daily</button>
+                </div>
+                <div class="coin-package popular">
+                    <div class="package-tag">Popular</div>
+                    <div class="coin-amount">500 Coins</div>
+                    <div class="coin-price">$4.99</div>
+                    <button class="buy-btn" data-amount="500">Buy Now</button>
+                </div>
+                <div class="coin-package">
+                    <div class="coin-amount">1200 Coins</div>
+                    <div class="coin-price">$9.99</div>
+                    <button class="buy-btn" data-amount="1200">Buy Now</button>
+                </div>
+            </div>
+            <p class="wallet-note">Coins can be used for premium features and gifts.</p>
         </div>
     </div>
 

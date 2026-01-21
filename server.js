@@ -42,8 +42,12 @@ io.on('connection', (socket) => {
         activeConnections.set(socket.id, {
             username: userData.username || 'Anonymous',
             isGuest: userData.isGuest || false,
-            partnerId: null
+            partnerId: null,
+            coins: 100 // Initial free credits
         });
+
+        // Send initial balance
+        socket.emit('balance-updated', { balance: 100 });
 
         // Try to match with waiting user
         if (waitingUsers.length > 0) {
@@ -123,6 +127,23 @@ io.on('connection', (socket) => {
             from: socket.id,
             message: data.message
         });
+    });
+
+    // Coin System
+    socket.on('get-balance', () => {
+        const user = activeConnections.get(socket.id);
+        if (user) {
+            socket.emit('balance-updated', { balance: user.coins });
+        }
+    });
+
+    socket.on('update-balance', (data) => {
+        // In a real app, validate this server-side!
+        const user = activeConnections.get(socket.id);
+        if (user) {
+            user.coins = (user.coins || 0) + data.amount;
+            socket.emit('balance-updated', { balance: user.coins });
+        }
     });
 
     // Stop matching
