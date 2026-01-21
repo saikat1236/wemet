@@ -129,37 +129,49 @@ io.on('connection', (socket) => {
 
     // WebRTC signaling - offer
     socket.on('offer', (data) => {
-        console.log('Relaying offer from', socket.id, 'to', data.to);
-        io.to(data.to).emit('offer', {
-            from: socket.id,
-            offer: data.offer
-        });
+        const userData = activeConnections.get(socket.id);
+        if (userData && userData.partnerId) {
+            console.log('Relaying offer from', socket.id, 'to', userData.partnerId);
+            io.to(userData.partnerId).emit('offer', {
+                offer: data.offer,
+                from: socket.id
+            });
+        }
     });
 
     // WebRTC signaling - answer
     socket.on('answer', (data) => {
-        console.log('Relaying answer from', socket.id, 'to', data.to);
-        io.to(data.to).emit('answer', {
-            from: socket.id,
-            answer: data.answer
-        });
+        const userData = activeConnections.get(socket.id);
+        if (userData && userData.partnerId) {
+            console.log('Relaying answer from', socket.id, 'to', userData.partnerId);
+            io.to(userData.partnerId).emit('answer', {
+                answer: data.answer,
+                from: socket.id
+            });
+        }
     });
 
     // WebRTC signaling - ICE candidate
     socket.on('ice-candidate', (data) => {
-        io.to(data.to).emit('ice-candidate', {
-            from: socket.id,
-            candidate: data.candidate
-        });
+        const userData = activeConnections.get(socket.id);
+        if (userData && userData.partnerId) {
+            io.to(userData.partnerId).emit('ice-candidate', {
+                candidate: data.candidate,
+                from: socket.id
+            });
+        }
     });
 
     // Chat message
     socket.on('chat-message', (data) => {
-        console.log('Chat message from', socket.id, 'to', data.to);
-        io.to(data.to).emit('chat-message', {
-            from: socket.id,
-            message: data.message
-        });
+        const userData = activeConnections.get(socket.id);
+        if (userData && userData.partnerId) {
+            console.log('Chat message from', socket.id, 'to', userData.partnerId);
+            io.to(userData.partnerId).emit('chat-message', {
+                message: data.message,
+                from: socket.id
+            });
+        }
     });
 
     // Coin System
