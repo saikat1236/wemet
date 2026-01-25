@@ -4,19 +4,20 @@ import { Mic, MicOff, Video, VideoOff, Send, X, LogOut, SkipForward, PlaySquare,
 
 const ChatRoom = ({ user, matchPreferences, onLogout, coins, setCoins, onOpenWallet, onOpenProfile }) => {
   const [socket, setSocket] = useState(null);
+  const socketRef = useRef(null);
   const [localStream, setLocalStream] = useState(null);
+  const localStreamRef = useRef(null);
   const [remoteStream, setRemoteStream] = useState(null);
-  const [peerConnection, setPeerConnection] = useState(null);
   
   const [isMatching, setIsMatching] = useState(false);
   const [isInChat, setIsInChat] = useState(false);
   const [status, setStatus] = useState('Click "Start" to begin');
-  const [partner, setPartner] = useState(null); // { name, avatar, bio, weMetId }
+  const [partner, setPartner] = useState(null); 
   
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
-  const [isChatOpen, setIsChatOpen] = useState(false);
-  const [sidebarTab, setSidebarTab] = useState('chat'); // 'chat' or 'history'
+  const [isChatOpen, setIsChatOpen] = useState(true);
+  const [sidebarTab, setSidebarTab] = useState('chat'); 
 
   const [messages, setMessages] = useState([]);
   const [isFavorite, setIsFavorite] = useState(false);
@@ -25,33 +26,27 @@ const ChatRoom = ({ user, matchPreferences, onLogout, coins, setCoins, onOpenWal
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const messagesEndRef = useRef(null);
+  const pcRef = useRef(null);
 
-  // Initialize Socket and WebRTC
+  // Initialize Socket once
   useEffect(() => {
-    const newSocket = io('/', {
+    const socketUrl = window.location.hostname === 'localhost' ? '/' : window.location.origin;
+    const newSocket = io(socketUrl, {
       path: '/socket.io',
-      transports: ['websocket', 'polling']
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionAttempts: 5
     });
+    
+    socketRef.current = newSocket;
     setSocket(newSocket);
 
-    return () => {
-      newSocket.disconnect();
-      if (localStream) {
-        localStream.getTracks().forEach(track => track.stop());
-      }
-    };
-  }, []);
-
-  // Socket Event Listeners
-  useEffect(() => {
-    if (!socket) return;
-
-    socket.on('connect', () => {
-      console.log('Connected to server');
+    newSocket.on('connect', () => {
+      console.log('Socket connected:', newSocket.id);
     });
 
-    socket.on('matched', async (data) => {
-      console.log('Matched:', data);
+    newSocket.on('matched', async (data) => {
+      console.log('Matched event received');
       setIsMatching(false);
       setIsInChat(true);
       
@@ -64,104 +59,77 @@ const ChatRoom = ({ user, matchPreferences, onLogout, coins, setCoins, onOpenWal
       setPartner(partnerProfile);
       setStatus('Connected!');
 
-      // Check if already in favorites
+      // Sync favorites
       const favorites = JSON.parse(localStorage.getItem('wemet_favorites') || '[]');
-      const isFav = favorites.some(f => f.weMetId === data.partnerWeMetId);
-      setIsFavorite(isFav);
+      setIsFavorite(favorites.some(f => f.weMetId === data.partnerWeMetId));
 
-      // Save to history
-      const newMatch = {
-        ...partnerProfile,
-        timestamp: new Date().toISOString()
-      };
-      
+      // Sync history
       const history = JSON.parse(localStorage.getItem('wemet_history') || '[]');
-      // Keep last 10 unique recent matches
-      const filteredHistory = history.filter(h => h.weMetId !== data.partnerWeMetId);
-      const updatedHistory = [newMatch, ...filteredHistory].slice(0, 10);
+      const updatedHistory = [
+        { ...partnerProfile, timestamp: new Date().toISOString() },
+        ...history.filter(h => h.weMetId !== data.partnerWeMetId)
+      ].slice(0, 10);
       localStorage.setItem('wemet_history', JSON.stringify(updatedHistory));
-      
+
       if (data.initiator) {
-        createOffer(data.partnerId);
+        createOffer();
       }
     });
 
-  const toggleFavorite = () => {
-    if (!partner || !partner.weMetId) return;
-    
-    const favorites = JSON.parse(localStorage.getItem('wemet_favorites') || '[]');
-    let updatedFavorites;
-    
-    if (isFavorite) {
-      updatedFavorites = favorites.filter(f => f.weMetId !== partner.weMetId);
-    } else {
-      updatedFavorites = [partner, ...favorites];
-    }
-    
-    localStorage.setItem('wemet_favorites', JSON.stringify(updatedFavorites));
-    setIsFavorite(!isFavorite);
-  };
-
-    socket.on('offer', async (data) => {
-      handleOffer(data.offer, data.from);
-    });
-
-    socket.on('answer', async (data) => {
-      handleAnswer(data.answer);
-    });
-
-    socket.on('ice-candidate', async (data) => {
-      handleIceCandidate(data.candidate);
-    });
-
-    socket.on('partner-disconnected', () => {
-      handlePartnerDisconnect();
-    });
-
-    socket.on('chat-message', (data) => {
+    newSocket.on('offer', (data) => handleOffer(data.offer));
+    newSocket.on('answer', (data) => handleAnswer(data.answer));
+    newSocket.on('ice-candidate', (data) => handleIceCandidate(data.candidate));
+    newSocket.on('partner-disconnected', () => handlePartnerDisconnect());
+    newSocket.on('chat-message', (data) => {
       setMessages(prev => [...prev, { sender: 'Stranger', text: data.message, isSent: false }]);
     });
 
     return () => {
-      socket.off('matched');
-      socket.off('offer');
-      socket.off('answer');
-      socket.off('ice-candidate');
-      socket.off('partner-disconnected');
-      socket.off('chat-message');
+      console.log('Cleaning up ChatRoom component');
+      if (newSocket) newSocket.disconnect();
+      if (pcRef.current) pcRef.current.close();
+      if (localStreamRef.current) {
+        localStreamRef.current.getTracks().forEach(track => track.stop());
+      }
     };
-  }, [socket, peerConnection]); // Re-run if socket or PC changes
+  }, []);
 
-  // Initialize Local Stream
+  // Initialize Local Stream once
   useEffect(() => {
     const startLocalStream = async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { width: { ideal: 1280 }, height: { ideal: 720 } }, 
+          audio: true 
+        });
+        localStreamRef.current = stream;
         setLocalStream(stream);
         if (localVideoRef.current) {
           localVideoRef.current.srcObject = stream;
         }
       } catch (err) {
-        console.error('Error accessing media:', err);
-        setStatus('Error: Could not access camera/microphone');
+        console.error('Media error:', err);
+        setStatus(`Camera error: ${err.message}`);
       }
     };
-
     startLocalStream();
   }, []);
 
   // WebRTC Functions
   const createPeerConnection = () => {
+    if (pcRef.current) pcRef.current.close();
+
     const pc = new RTCPeerConnection({
       iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' }
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' }
       ]
     });
 
     pc.onicecandidate = (event) => {
-      if (event.candidate && socket) {
-        socket.emit('ice-candidate', { candidate: event.candidate });
+      if (event.candidate && socketRef.current) {
+        socketRef.current.emit('ice-candidate', { candidate: event.candidate });
       }
     };
 
@@ -172,53 +140,54 @@ const ChatRoom = ({ user, matchPreferences, onLogout, coins, setCoins, onOpenWal
       }
     };
 
-    if (localStream) {
-      localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+    const stream = localStreamRef.current;
+    if (stream) {
+      stream.getTracks().forEach(track => pc.addTrack(track, stream));
     }
 
-    setPeerConnection(pc);
+    pcRef.current = pc;
     return pc;
   };
 
-  const createOffer = async (partnerId) => {
+  const createOffer = async () => {
     const pc = createPeerConnection();
     try {
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
-      socket.emit('offer', { offer });
+      socketRef.current.emit('offer', { offer });
     } catch (err) {
-      console.error('Error creating offer:', err);
+      console.error('Offer error:', err);
     }
   };
 
-  const handleOffer = async (offer, partnerId) => {
+  const handleOffer = async (offer) => {
     const pc = createPeerConnection();
     try {
       await pc.setRemoteDescription(new RTCSessionDescription(offer));
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
-      socket.emit('answer', { answer });
+      socketRef.current.emit('answer', { answer });
     } catch (err) {
-      console.error('Error handling offer:', err);
+      console.error('Handle offer error:', err);
     }
   };
 
   const handleAnswer = async (answer) => {
-    if (peerConnection) {
+    if (pcRef.current) {
       try {
-        await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+        await pcRef.current.setRemoteDescription(new RTCSessionDescription(answer));
       } catch (err) {
-        console.error('Error handling answer:', err);
+        console.error('Handle answer error:', err);
       }
     }
   };
 
   const handleIceCandidate = async (candidate) => {
-    if (peerConnection) {
+    if (pcRef.current) {
       try {
-        await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+        await pcRef.current.addIceCandidate(new RTCIceCandidate(candidate));
       } catch (err) {
-        console.error('Error handling ICE candidate:', err);
+        console.error('Add ICE candidate error:', err);
       }
     }
   };
@@ -228,12 +197,25 @@ const ChatRoom = ({ user, matchPreferences, onLogout, coins, setCoins, onOpenWal
     setPartner(null);
     setRemoteStream(null);
     if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
-    if (peerConnection) {
-      peerConnection.close();
-      setPeerConnection(null);
+    if (pcRef.current) {
+      pcRef.current.close();
+      pcRef.current = null;
     }
-    setStatus('Partner disconnected. Click "Next" to find someone new.');
-    setMessages(prev => [...prev, { sender: 'System', text: 'Partner has disconnected', isSystem: true }]);
+    setStatus('Partner left. Click "Next" to find someone new.');
+    setMessages(prev => [...prev, { sender: 'System', text: 'Partner disconnected', isSystem: true }]);
+  };
+
+  const toggleFavorite = () => {
+    if (!partner || !partner.weMetId) return;
+    const favorites = JSON.parse(localStorage.getItem('wemet_favorites') || '[]');
+    let updated;
+    if (isFavorite) {
+      updated = favorites.filter(f => f.weMetId !== partner.weMetId);
+    } else {
+      updated = [partner, ...favorites];
+    }
+    localStorage.setItem('wemet_favorites', JSON.stringify(updated));
+    setIsFavorite(!isFavorite);
   };
 
   const [isScreenSharing, setIsScreenSharing] = useState(false);
@@ -247,8 +229,8 @@ const ChatRoom = ({ user, matchPreferences, onLogout, coins, setCoins, onOpenWal
       const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
       const screenTrack = screenStream.getVideoTracks()[0];
 
-      if (peerConnection) {
-        const sender = peerConnection.getSenders().find(s => s.track.kind === 'video');
+      if (pcRef.current) {
+        const sender = pcRef.current.getSenders().find(s => s.track.kind === 'video');
         if (sender) {
           sender.replaceTrack(screenTrack);
         }
@@ -269,9 +251,9 @@ const ChatRoom = ({ user, matchPreferences, onLogout, coins, setCoins, onOpenWal
   };
 
   const stopScreenShare = async () => {
-    if (localStream && peerConnection) {
+    if (localStream && pcRef.current) {
       const videoTrack = localStream.getVideoTracks()[0];
-      const sender = peerConnection.getSenders().find(s => s.track.kind === 'video');
+      const sender = pcRef.current.getSenders().find(s => s.track.kind === 'video');
       if (sender) {
         sender.replaceTrack(videoTrack);
       }
@@ -342,9 +324,9 @@ const ChatRoom = ({ user, matchPreferences, onLogout, coins, setCoins, onOpenWal
     setPartner(null);
     setRemoteStream(null);
     if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
-    if (peerConnection) {
-      peerConnection.close();
-      setPeerConnection(null);
+    if (pcRef.current) {
+      pcRef.current.close();
+      pcRef.current = null;
     }
     socket.emit('stop-matching');
     setStatus('Click "Start" to begin');
@@ -387,11 +369,11 @@ const ChatRoom = ({ user, matchPreferences, onLogout, coins, setCoins, onOpenWal
       <header className="chat-header">
         <div className="logo">
           <div className="logo-icon" style={{ 
-            width: '32px', height: '32px', 
+            width: '24px', height: '24px', 
             background: 'linear-gradient(135deg, #667eea, #764ba2)',
             borderRadius: '50%' 
           }}></div>
-          <span>WeMet</span>
+          <span style={{ fontSize: '1.2rem' }}>WeMet</span>
         </div>
         <div className="user-info">
           <div className="coin-balance" onClick={onOpenWallet} style={{cursor: 'pointer'}}>
@@ -400,7 +382,7 @@ const ChatRoom = ({ user, matchPreferences, onLogout, coins, setCoins, onOpenWal
             <button className="add-coins-btn">+</button>
           </div>
           
-          <div className="user-profile-trigger" onClick={onOpenProfile} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', padding: '4px 8px', borderRadius: '8px', transition: 'background 0.2s' }}>
+          <div className="user-profile-trigger" onClick={onOpenProfile}>
             <span style={{ fontSize: '1.2rem' }}>{user?.avatar || '😊'}</span>
             <span className="username">{user?.username}</span>
           </div>
@@ -425,7 +407,7 @@ const ChatRoom = ({ user, matchPreferences, onLogout, coins, setCoins, onOpenWal
                 </div>
               )}
               {partner && (
-                <div className="partner-info" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div className="partner-info">
                   <span style={{ fontSize: '1.5rem' }}>{partner.avatar}</span>
                   <div>
                     <div style={{ fontWeight: '700' }}>{partner.name}</div>
@@ -433,10 +415,7 @@ const ChatRoom = ({ user, matchPreferences, onLogout, coins, setCoins, onOpenWal
                   </div>
                   <button 
                     onClick={toggleFavorite} 
-                    style={{ 
-                      background: 'transparent', border: 'none', cursor: 'pointer', 
-                      marginLeft: 'auto', display: 'flex', alignItems: 'center' 
-                    }}
+                    className="fav-btn"
                   >
                     <Heart size={20} fill={isFavorite ? '#ff4b2b' : 'none'} color={isFavorite ? '#ff4b2b' : 'white'} />
                   </button>
@@ -482,17 +461,17 @@ const ChatRoom = ({ user, matchPreferences, onLogout, coins, setCoins, onOpenWal
             
             {!isInChat && !isMatching && (
               <button className="control-btn primary" onClick={startMatching}>
-                <PlaySquare size={20} /> Start
+                <PlaySquare size={20} /> <span>Start</span>
               </button>
             )}
             
             {(isInChat || isMatching) && (
               <>
                 <button className="control-btn accent" onClick={findNext}>
-                  <SkipForward size={20} /> Next
+                  <SkipForward size={20} /> <span>Next</span>
                 </button>
                 <button className="control-btn danger" onClick={stopChat}>
-                  <StopCircle size={20} /> Stop
+                  <StopCircle size={20} /> <span>Stop</span>
                 </button>
               </>
             )}
