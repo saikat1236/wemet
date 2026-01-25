@@ -22,11 +22,40 @@ const ChatRoom = ({ user, matchPreferences, onLogout, coins, setCoins, onOpenWal
   const [messages, setMessages] = useState([]);
   const [isFavorite, setIsFavorite] = useState(false);
   const [inputText, setInputText] = useState('');
+  const [showLowBalanceWarning, setShowLowBalanceWarning] = useState(false);
 
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const messagesEndRef = useRef(null);
   const pcRef = useRef(null);
+  const coinIntervalRef = useRef(null);
+
+  // Coin consumption logic
+  useEffect(() => {
+    if (isInChat && coins > 0) {
+      coinIntervalRef.current = setInterval(() => {
+        setCoins(prev => {
+          const next = prev - 1;
+          if (next <= 0) {
+            clearInterval(coinIntervalRef.current);
+            stopChat();
+            alert("Your coins have run out! Please get more coins to continue chatting.");
+            onOpenWallet();
+            return 0;
+          }
+          if (next <= 10) {
+            setShowLowBalanceWarning(true);
+          }
+          return next;
+        });
+      }, 1000);
+    } else {
+      clearInterval(coinIntervalRef.current);
+      setShowLowBalanceWarning(false);
+    }
+
+    return () => clearInterval(coinIntervalRef.current);
+  }, [isInChat]);
 
   // Initialize Socket once
   useEffect(() => {
@@ -376,9 +405,13 @@ const ChatRoom = ({ user, matchPreferences, onLogout, coins, setCoins, onOpenWal
           <span style={{ fontSize: '1.2rem' }}>WeMet</span>
         </div>
         <div className="user-info">
-          <div className="coin-balance" onClick={onOpenWallet} style={{cursor: 'pointer'}}>
+          <div className="coin-balance" onClick={onOpenWallet} style={{
+            cursor: 'pointer',
+            border: showLowBalanceWarning ? '2px solid #ff4b2b' : '1px solid var(--border-color)',
+            animation: showLowBalanceWarning ? 'pulse-red 1s infinite' : 'none'
+          }}>
             <span style={{color: '#FFD700'}}>●</span>
-            <span id="coin-count">{coins}</span>
+            <span id="coin-count" style={{ color: showLowBalanceWarning ? '#ff4b2b' : 'inherit' }}>{coins}</span>
             <button className="add-coins-btn">+</button>
           </div>
           

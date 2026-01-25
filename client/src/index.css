@@ -1036,6 +1036,19 @@ body::before {
   background: #667eea;
 }
 
+/* Pulse Red Animation for Low Balance */
+@keyframes pulse-red {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 75, 43, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(255, 75, 43, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 75, 43, 0);
+  }
+}
+
 /* ===== ADVANCED ANIMATIONS ===== */
 
 /* Floating Animation */
